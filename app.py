@@ -628,12 +628,13 @@ if page == "🏠 Dashboard":
          st.markdown(
     f"""
     <div class="profile-card">
-        <h2>Student Account</h2>
+        <h2>{student_name}</h2>
         <p>Email: {student_email}</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
+
 
     with right:
         st.markdown(
