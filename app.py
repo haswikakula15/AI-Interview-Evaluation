@@ -15,6 +15,124 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown("""
+<style>
+/* Main page */
+.stApp {
+    background: linear-gradient(135deg, #0B1020 0%, #111827 55%, #17132B 100%);
+    color: #F8FAFC;
+}
+
+/* Main content width and spacing */
+.block-container {
+    max-width: 1200px;
+    padding-top: 2.5rem;
+    padding-bottom: 3rem;
+}
+
+/* Headings */
+h1 {
+    color: #FFFFFF !important;
+    font-size: 2.5rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -1px;
+}
+
+h2, h3 {
+    color: #E9D5FF !important;
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: #0D1425;
+    border-right: 1px solid #273449;
+}
+
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] label {
+    color: #E2E8F0 !important;
+}
+
+/* Buttons */
+.stButton > button {
+    background: linear-gradient(90deg, #7C3AED, #A855F7);
+    color: #FFFFFF !important;
+    border: 1px solid #A78BFA;
+    border-radius: 10px;
+    padding: 0.65rem 1.1rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.stButton > button:hover {
+    background: linear-gradient(90deg, #6D28D9, #9333EA);
+    border-color: #C4B5FD;
+    transform: translateY(-1px);
+}
+
+/* Input fields */
+.stTextArea textarea,
+.stTextInput input {
+    background: #151E30 !important;
+    color: #F8FAFC !important;
+    border: 1px solid #475569 !important;
+    border-radius: 10px !important;
+}
+
+.stTextArea textarea:focus,
+.stTextInput input:focus {
+    border-color: #A78BFA !important;
+    box-shadow: 0 0 0 1px #A78BFA !important;
+}
+
+/* Dropdowns */
+.stSelectbox [data-baseweb="select"] > div {
+    background-color: #151E30;
+    border-color: #475569;
+    border-radius: 9px;
+}
+
+/* Score cards */
+[data-testid="stMetric"] {
+    background: linear-gradient(145deg, #1E293B, #252044);
+    border: 1px solid #55417D;
+    border-radius: 14px;
+    padding: 18px;
+}
+
+[data-testid="stMetricLabel"] {
+    color: #C4B5FD !important;
+}
+
+[data-testid="stMetricValue"] {
+    color: #FFFFFF !important;
+}
+
+/* Alerts and messages */
+[data-testid="stAlert"] {
+    border-radius: 10px;
+}
+
+/* Separators */
+hr {
+    border-color: #334155;
+}
+
+/* Tables */
+[data-testid="stDataFrame"] {
+    border: 1px solid #334155;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* Links */
+a {
+    color: #C4B5FD !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 st.title("AI Interview Preparation & Evaluation System")
 st.write("Practice interviews and receive AI-powered feedback on your answers.")
 
