@@ -625,19 +625,15 @@ if page == "🏠 Dashboard":
     left, right = st.columns([1.2, 1])
 
     with left:
-        st.markdown(
-            f"""
-            <div class="profile-card">
-                <h2>{student_name}</h2>
-                <p>{profile.get("course") or "Add your course in My Profile"}</p>
-                <p>{profile.get("college") or "Add your college in My Profile"}</p>
-                <p>Graduation year: {profile.get("graduation_year") or "Not set"}</p>
-                <p>Career goal: {profile.get("career_goal") or "Not set"}</p>
-                <p>{student_email}</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+         st.markdown(
+    f"""
+    <div class="profile-card">
+        <h2>Student Account</h2>
+        <p>Email: {student_email}</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
     with right:
         st.markdown(
