@@ -2,102 +2,82 @@
 import os
 import json
 import streamlit as st
+import fitz
 from dotenv import load_dotenv
 from google import genai
 
-# Load API key
+# --------------------------------------------------
+# CONFIGURATION
+# --------------------------------------------------
+
 load_dotenv()
+
 API_KEY = os.getenv("GEMINI_API_KEY")
+MODEL = "gemini-3.8-flash"
 
 st.set_page_config(
-    page_title="AI Interview Evaluation",
+    page_title="AI Interview Studio",
     page_icon="🎯",
     layout="wide"
 )
 
+# --------------------------------------------------
+# DARK NAVY + PURPLE DESIGN
+# --------------------------------------------------
+
 st.markdown("""
 <style>
-/* Main page */
 .stApp {
-    background: linear-gradient(135deg, #0B1020 0%, #111827 55%, #17132B 100%);
+    background: linear-gradient(135deg, #0B1020, #111827, #17132B);
     color: #F8FAFC;
 }
 
-/* Main content width and spacing */
 .block-container {
     max-width: 1200px;
-    padding-top: 2.5rem;
+    padding-top: 2rem;
     padding-bottom: 3rem;
 }
 
-/* Headings */
 h1 {
     color: #FFFFFF !important;
-    font-size: 2.5rem !important;
     font-weight: 800 !important;
-    letter-spacing: -1px;
 }
 
 h2, h3 {
     color: #E9D5FF !important;
 }
 
-/* Sidebar */
 [data-testid="stSidebar"] {
     background: #0D1425;
     border-right: 1px solid #273449;
 }
 
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] label {
-    color: #E2E8F0 !important;
-}
-
-/* Buttons */
 .stButton > button {
     background: linear-gradient(90deg, #7C3AED, #A855F7);
-    color: #FFFFFF !important;
+    color: white !important;
     border: 1px solid #A78BFA;
     border-radius: 10px;
-    padding: 0.65rem 1.1rem;
+    padding: 0.65rem 1rem;
     font-weight: 600;
-    transition: all 0.2s ease;
 }
 
 .stButton > button:hover {
-    background: linear-gradient(90deg, #6D28D9, #9333EA);
+    background: #6D28D9;
     border-color: #C4B5FD;
-    transform: translateY(-1px);
 }
 
-/* Input fields */
-.stTextArea textarea,
-.stTextInput input {
+.stTextArea textarea {
     background: #151E30 !important;
     color: #F8FAFC !important;
     border: 1px solid #475569 !important;
     border-radius: 10px !important;
 }
 
-.stTextArea textarea:focus,
-.stTextInput input:focus {
-    border-color: #A78BFA !important;
-    box-shadow: 0 0 0 1px #A78BFA !important;
-}
-
-/* Dropdowns */
-.stSelectbox [data-baseweb="select"] > div {
-    background-color: #151E30;
-    border-color: #475569;
-    border-radius: 9px;
-}
-
-/* Score cards */
 [data-testid="stMetric"] {
     background: linear-gradient(145deg, #1E293B, #252044);
     border: 1px solid #55417D;
     border-radius: 14px;
-    padding: 18px;
+    padding: 16px;
 }
 
 [data-testid="stMetricLabel"] {
@@ -108,59 +88,60 @@ h2, h3 {
     color: #FFFFFF !important;
 }
 
-/* Alerts and messages */
-[data-testid="stAlert"] {
-    border-radius: 10px;
-}
-
-/* Separators */
 hr {
     border-color: #334155;
-}
-
-/* Tables */
-[data-testid="stDataFrame"] {
-    border: 1px solid #334155;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-/* Links */
-a {
-    color: #C4B5FD !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
+# --------------------------------------------------
+# HEADER
+# --------------------------------------------------
 
-st.title("AI Interview Preparation & Evaluation System")
-st.write("Practice interviews and receive AI-powered feedback on your answers.")
+st.title("🎯 AI Interview Studio")
+st.write(
+    "Practice interviews, receive AI-powered feedback, "
+    "and prepare confidently for your next opportunity."
+)
+
+st.caption("Personalized questions • Intelligent evaluation • Actionable feedback")
 
 if not API_KEY:
-    st.error("Gemini API key not found. Check your .env file.")
+    st.error(
+        "Gemini API key not found. Add GEMINI_API_KEY to your "
+        "local .env file or Streamlit Cloud Secrets."
+    )
     st.stop()
 
 client = genai.Client(api_key=API_KEY)
-MODEL = "gemini-3.5-flash-lite"
 
-# Session state
-if "history" not in st.session_state:
-    st.session_state.history = []
+# --------------------------------------------------
+# SESSION STATE
+# --------------------------------------------------
 
-if "question" not in st.session_state:
-    st.session_state.question = None
+defaults = {
+    "history": [],
+    "question": None,
+    "evaluation": None,
+    "answer": "",
+    "current_role": None,
+    "current_level": None,
+    "resume_text": "",
+    "resume_name": None,
+}
 
-if "evaluation" not in st.session_state:
-    st.session_state.evaluation = None
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
-if "answer" not in st.session_state:
-    st.session_state.answer = ""
+# --------------------------------------------------
+# SIDEBAR: SETTINGS AND RESUME
+# --------------------------------------------------
 
-# Sidebar settings
-st.sidebar.header("Interview Settings")
+st.sidebar.title("Interview Setup")
 
 role = st.sidebar.selectbox(
-    "Choose your role",
+    "Choose your target role",
     [
         "Java Developer",
         "Python Developer",
@@ -171,111 +152,226 @@ role = st.sidebar.selectbox(
 )
 
 level = st.sidebar.selectbox(
-    "Difficulty",
+    "Difficulty level",
     ["Beginner", "Intermediate", "Advanced"]
 )
+
+st.sidebar.divider()
+st.sidebar.subheader("Resume-Based Interview")
+
+uploaded_resume = st.sidebar.file_uploader(
+    "Upload your resume (PDF)",
+    type=["pdf"]
+)
+
+if uploaded_resume is not None:
+    if st.session_state.resume_name != uploaded_resume.name:
+        try:
+            with fitz.open(
+                stream=uploaded_resume.getvalue(),
+                filetype="pdf"
+            ) as pdf:
+                extracted_text = "\n".join(
+                    page.get_text() for page in pdf
+                )
+
+            if extracted_text.strip():
+                st.session_state.resume_text = extracted_text[:12000]
+                st.session_state.resume_name = uploaded_resume.name
+                st.sidebar.success("Resume text extracted!")
+            else:
+                st.session_state.resume_text = ""
+                st.session_state.resume_name = None
+                st.sidebar.warning(
+                    "No readable text found. Try a text-based PDF."
+                )
+
+        except Exception as e:
+            st.sidebar.error(f"Could not read the PDF: {e}")
+
+if st.session_state.resume_text:
+    st.sidebar.caption(
+        f"Resume loaded: {st.session_state.resume_name}"
+    )
+    if st.sidebar.button("Remove Resume"):
+        st.session_state.resume_text = ""
+        st.session_state.resume_name = None
+        st.session_state.question = None
+        st.session_state.evaluation = None
+        st.rerun()
+
+st.sidebar.divider()
 
 if st.sidebar.button("Start New Interview"):
     st.session_state.history = []
     st.session_state.question = None
     st.session_state.evaluation = None
     st.session_state.answer = ""
+    st.session_state.current_role = None
+    st.session_state.current_level = None
     st.rerun()
 
-# Generate question
-if st.button("Generate Interview Question", type="primary"):
-    with st.spinner("Generating your question..."):
+# --------------------------------------------------
+# INTERVIEW MODE
+# --------------------------------------------------
+
+if st.session_state.resume_text:
+    st.info(
+        "Resume-based mode is enabled. Questions can be tailored "
+        "to the skills and projects identified in your PDF."
+    )
+else:
+    st.info(
+        "General interview mode is enabled. Upload a PDF resume "
+        "in the sidebar for personalized questions."
+    )
+
+# --------------------------------------------------
+# GENERATE QUESTION
+# --------------------------------------------------
+
+if st.button("✨ Generate Interview Question", type="primary"):
+    resume_context = ""
+
+    if st.session_state.resume_text:
+        resume_context = f"""
+        Candidate resume:
+        {st.session_state.resume_text}
+
+        Ask a question related to a skill, project, education,
+        or experience actually mentioned in the resume.
+        Do not invent qualifications or experience.
+        """
+
+    previous_questions = [
+        item["question"] for item in st.session_state.history
+    ]
+
+    prompt = f"""
+    Act as a professional technical interviewer.
+
+    Target role: {role}
+    Difficulty: {level}
+
+    {resume_context}
+
+    Generate one clear, relevant interview question.
+    Avoid repeating these previous questions:
+    {previous_questions}
+
+    Return only the question, without its answer.
+    """
+
+    with st.spinner("Generating your interview question..."):
         try:
-            prompt = f"""
-            Act as a professional technical interviewer.
-            Generate one unique interview question for the role: {role}.
-            Difficulty: {level}.
-            Avoid repeating these previous questions:
-            { [item["question"] for item in st.session_state.history] }
-
-            Return only the question text, without an answer.
-            """
-
             response = client.models.generate_content(
                 model=MODEL,
                 contents=prompt
             )
 
-            st.session_state.question = response.text.strip()
-            st.session_state.evaluation = None
-            st.session_state.answer = ""
+            if not response.text:
+                st.error("The AI returned an empty question. Try again.")
+            else:
+                st.session_state.question = response.text.strip()
+                st.session_state.evaluation = None
+                st.session_state.answer = ""
+                st.session_state.current_role = role
+                st.session_state.current_level = level
+                st.rerun()
 
         except Exception as e:
             st.error(f"Could not generate a question: {e}")
 
+# --------------------------------------------------
+# DISPLAY QUESTION AND COLLECT ANSWER
+# --------------------------------------------------
+
 if st.session_state.question:
-    st.subheader("Your Interview Question")
+    st.divider()
+    st.subheader("📝 Your Interview Question")
     st.write(st.session_state.question)
 
     answer = st.text_area(
-        "Type your answer here",
+        "Your answer",
         value=st.session_state.answer,
         height=180,
-        key="answer_input",
-        placeholder="Explain your answer clearly..."
+        placeholder="Explain your answer in your own words...",
+        key="candidate_answer"
     )
 
     if st.button("Evaluate My Answer", type="primary"):
         if not answer.strip():
-            st.warning("Please enter an answer first.")
+            st.warning("Please enter your answer first.")
         else:
-            with st.spinner("AI is evaluating your answer..."):
+            evaluation_prompt = f"""
+            You are a fair and professional technical interviewer.
+
+            Role: {st.session_state.current_role}
+            Difficulty: {st.session_state.current_level}
+            Question: {st.session_state.question}
+            Candidate answer: {answer}
+
+            Evaluate technical correctness, understanding,
+            completeness and clarity. Accept valid alternative
+            explanations. Do not require exact wording.
+
+            Return ONLY valid JSON using this structure:
+            {{
+              "score": 0,
+              "verdict": "Incorrect",
+              "feedback": "Constructive feedback",
+              "strengths": ["A strength"],
+              "missing_concepts": ["A concept to improve"],
+              "sample_answer": "A clear model answer"
+            }}
+
+            Score must be an integer from 0 to 10.
+            Use verdict Correct, Partially Correct, or Incorrect.
+            Award 0 for empty or irrelevant answers.
+            Do not give full marks to an incorrect answer.
+            """
+
+            with st.spinner("Evaluating your answer with AI..."):
                 try:
-                    prompt = f"""
-                    You are a fair and professional technical interviewer.
-
-                    Role: {role}
-                    Difficulty: {level}
-                    Question: {st.session_state.question}
-                    Candidate answer: {answer}
-
-                    Evaluate technical correctness, understanding,
-                    completeness, and clarity. Accept valid alternative
-                    explanations. Do not require exact wording.
-
-                    Return ONLY valid JSON with these keys:
-                    {{
-                      "score": integer from 0 to 10,
-                      "verdict": "Correct", "Partially Correct", or "Incorrect",
-                      "feedback": "constructive explanation",
-                      "strengths": ["strength 1", "strength 2"],
-                      "missing_concepts": ["concept 1", "concept 2"],
-                      "sample_answer": "a clear model answer"
-                    }}
-
-                    Award 0 if the answer is empty or irrelevant.
-                    Do not give full marks to an incorrect answer.
-                    """
-
                     result = client.models.generate_content(
                         model=MODEL,
-                        contents=prompt
+                        contents=evaluation_prompt
                     )
 
-                    text = result.text.strip()
-                    text = text.removeprefix("```json").removeprefix("```")
-                    text = text.removesuffix("```").strip()
+                    raw = (result.text or "").strip()
+                    raw = raw.removeprefix("```json").removeprefix("```")
+                    raw = raw.removesuffix("```").strip()
 
-                    evaluation = json.loads(text)
-                    evaluation["score"] = max(
+                    evaluation = json.loads(raw)
+
+                    score = max(
                         0, min(10, int(evaluation["score"]))
                     )
+
+                    verdict = evaluation.get(
+                        "verdict", "Partially Correct"
+                    )
+
+                    if verdict not in [
+                        "Correct", "Partially Correct", "Incorrect"
+                    ]:
+                        verdict = "Partially Correct"
+
+                    evaluation["score"] = score
+                    evaluation["verdict"] = verdict
 
                     st.session_state.evaluation = evaluation
                     st.session_state.answer = answer
 
                     st.session_state.history.append({
-                        "role": role,
+                        "role": st.session_state.current_role,
                         "question": st.session_state.question,
                         "answer": answer,
-                        "score": evaluation["score"],
-                        "verdict": evaluation["verdict"]
+                        "score": score,
+                        "verdict": verdict,
                     })
+
+                    st.rerun()
 
                 except json.JSONDecodeError:
                     st.error(
@@ -285,25 +381,33 @@ if st.session_state.question:
                 except Exception as e:
                     st.error(f"Evaluation failed: {e}")
 
-# Display evaluation
+# --------------------------------------------------
+# DISPLAY EVALUATION
+# --------------------------------------------------
+
 if st.session_state.evaluation:
     evaluation = st.session_state.evaluation
 
     st.divider()
-    st.subheader("Evaluation Results")
+    st.subheader("📊 Evaluation Results")
 
     col1, col2 = st.columns(2)
-    col1.metric("Score", f'{evaluation["score"]}/10')
+
+    col1.metric("Your Score", f'{evaluation["score"]}/10')
     col2.metric("Verdict", evaluation["verdict"])
 
-    st.markdown("**Feedback**")
-    st.write(evaluation["feedback"])
+    st.markdown("### 💬 Feedback")
+    st.write(evaluation.get("feedback", "No feedback provided."))
 
-    st.markdown("**What you did well**")
-    for item in evaluation.get("strengths", []):
-        st.write(f"• {item}")
+    st.markdown("### ✅ Strengths")
+    strengths = evaluation.get("strengths", [])
+    if strengths:
+        for item in strengths:
+            st.write(f"• {item}")
+    else:
+        st.write("No strengths were listed.")
 
-    st.markdown("**Concepts to improve**")
+    st.markdown("### 📚 Concepts to Improve")
     missing = evaluation.get("missing_concepts", [])
     if missing:
         for item in missing:
@@ -311,30 +415,50 @@ if st.session_state.evaluation:
     else:
         st.write("No major missing concepts identified.")
 
-    st.markdown("**Sample Answer**")
-    st.write(evaluation["sample_answer"])
+    st.markdown("### 💡 Sample Answer")
+    st.write(
+        evaluation.get("sample_answer", "No sample answer provided.")
+    )
 
-# Interview summary
+# --------------------------------------------------
+# PERFORMANCE DASHBOARD
+# --------------------------------------------------
+
 if st.session_state.history:
     st.divider()
-    st.subheader("Interview Performance Summary")
+    st.subheader("📈 Interview Performance Dashboard")
 
-    scores = [item["score"] for item in st.session_state.history]
-    average = sum(scores) / len(scores)
+    scores = [
+        item["score"] for item in st.session_state.history
+    ]
+
+    average_score = sum(scores) / len(scores)
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Questions Attempted", len(scores))
-    col2.metric("Average Score", f"{average:.1f}/10")
+    col2.metric("Average Score", f"{average_score:.1f}/10")
     col3.metric("Highest Score", f"{max(scores)}/10")
+
+    st.markdown("### Interview History")
 
     st.dataframe(
         [
             {
+                "Role": item["role"],
                 "Question": item["question"],
                 "Score": f'{item["score"]}/10',
                 "Verdict": item["verdict"]
             }
             for item in st.session_state.history
         ],
-        use_container_width=True
+        use_container_width=True,
+        hide_index=True
     )
+
+    st.caption(
+        "History is kept for this active Streamlit session only. "
+        "It is not permanently stored."
+    )
+
+st.divider()
+st.caption("AI Interview Studio | Powered by Streamlit and Gemini")
