@@ -1,9 +1,11 @@
-
 streamlit
-google-genai
-python-dotenv
 pandas
 plotly
 pymupdf
 requests
+google-genai
+python-dotenv
 easyocr
+numpy
+Pillow
+supabase
